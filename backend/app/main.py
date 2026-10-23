@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.health import router as health_router
 from app.api.movimientos import router as movimientos_router
+from app.api.reportes import router as reportes_router
 
 # Las tablas se crean/evolucionan mediante Alembic (ver alembic/).
 # NO se llama a Base.metadata.create_all aquí para no recrear el esquema
@@ -24,6 +25,7 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(movimientos_router)
+app.include_router(reportes_router)
 
 
 @app.get("/", tags=["raíz"])
