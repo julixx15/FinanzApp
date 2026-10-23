@@ -1,0 +1,70 @@
+"""
+Configuración de entorno para Alembic.
+
+- Lee DATABASE_URL desde la variable de entorno (o usa el default SQLite).
+- Apunta target_metadata a los modelos SQLAlchemy de la app para que
+  autogenerate detecte cambios automáticamente.
+"""
+
+import os
+from logging.config import fileConfig
+
+from sqlalchemy import engine_from_config, pool
+
+from alembic import context
+
+# -- Importar Base y modelos para autogenerate ----------------------- #
+from app.db.database import Base  # noqa: F401
+import app.db.models  # noqa: F401  # asegura que los modelos estén registrados
+
+# -------------------------------------------------------------------- #
+
+config = context.config
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# Sobrescribe la URL con la variable de entorno si existe
+database_url = os.getenv("DATABASE_URL", "sqlite:///./finanzapp.db")
+config.set_main_option("sqlalchemy.url", database_url)
+
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -> None:
+    """Modo offline: genera SQL sin conectarse a la base de datos."""
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        # Necesario para que compare tipos Enum correctamente en SQLite
+        compare_type=True,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    """Modo online: aplica migraciones directamente sobre la base de datos."""
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()

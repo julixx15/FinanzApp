@@ -2,15 +2,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.health import router as health_router
-from app.db.database import Base, engine
+from app.api.movimientos import router as movimientos_router
+from app.api.reportes import router as reportes_router
 
-# Crea las tablas al iniciar (en fases posteriores se usará Alembic)
-Base.metadata.create_all(bind=engine)
+# Las tablas se crean/evolucionan mediante Alembic (ver alembic/).
+# NO se llama a Base.metadata.create_all aquí para no recrear el esquema
+# en cada reinicio accidental.
 
 app = FastAPI(
     title="FinanzApp API",
     description="API de gestión de finanzas personales",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 app.add_middleware(
@@ -22,6 +24,8 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(movimientos_router)
+app.include_router(reportes_router)
 
 
 @app.get("/", tags=["raíz"])
