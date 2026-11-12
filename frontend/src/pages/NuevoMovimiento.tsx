@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Card } from '../components/ui/Card'
-import type { PerfilUsuario } from '../data/usuarios'
+import { crearMovimiento } from '../services/movimientosService'
+import { useMovimientos } from '../hooks/useMovimientos'
 import type { TipoMovimiento } from '../types/domain'
+import type { PerfilUsuario } from '../data/usuarios'
+import { formatearMoneda } from '../utils/formato'
 
 type FormState = {
   tipo: TipoMovimiento
@@ -22,21 +25,47 @@ const TIPOS: { valor: TipoMovimiento; etiqueta: string; color: string; bg: strin
 interface Props { usuario: PerfilUsuario }
 
 export function NuevoMovimiento({ usuario }: Props) {
+  const { categorias, estado: estadoApi, recargar } = useMovimientos()
   const [form, setForm]       = useState<FormState>({ tipo: 'ingreso', monto: '', categoria: '', descripcion: '', fecha: hoy })
+  const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [error, setError]     = useState<string | null>(null)
 
   const set = (campo: keyof FormState, valor: string) => { setForm(f => ({ ...f, [campo]: valor })); setError(null) }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.monto || isNaN(Number(form.monto)) || Number(form.monto) <= 0) { setError('El monto debe ser un número positivo.'); return }
+    if (!form.monto || isNaN(Number(form.monto)) || Number(form.monto) <= 0) {
+      setError('El monto debe ser un número positivo.')
+      return
+    }
     if (!form.categoria) { setError('Selecciona una categoría.'); return }
-    setEnviado(true)
+
+    setEnviando(true)
+    setError(null)
+    try {
+      await crearMovimiento({
+        tipo:        form.tipo,
+        monto:       Number(form.monto).toFixed(2),
+        categoria:   form.categoria,
+        descripcion: form.descripcion,
+        fecha:       form.fecha,
+      })
+      recargar()
+      setEnviado(true)
+    } catch {
+      // Si el backend no está activo, simula éxito para el prototipo
+      if (estadoApi === 'demo') {
+        setEnviado(true)
+      } else {
+        setError('No se pudo guardar. Verifica que el backend esté activo.')
+      }
+    } finally {
+      setEnviando(false)
+    }
   }
 
   const tipoActual = TIPOS.find(t => t.valor === form.tipo)!
-  const fmt = (v: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v)
 
   if (enviado) {
     return (
@@ -50,13 +79,16 @@ export function NuevoMovimiento({ usuario }: Props) {
           <div>
             <h2 className="text-xl font-bold text-gray-900">¡Movimiento registrado!</h2>
             <p className="text-gray-500 text-sm mt-1">
-              {tipoActual.etiqueta} de <span className="font-semibold">{fmt(Number(form.monto))}</span> en{' '}
-              <span className="font-semibold">{form.categoria}</span> guardado para{' '}
+              {tipoActual.etiqueta} de{' '}
+              <span className="font-semibold">{formatearMoneda(Number(form.monto))}</span>{' '}
+              en <span className="font-semibold">{form.categoria}</span> guardado para{' '}
               <span className="font-semibold">{usuario.nombre}</span>.
             </p>
-            <p className="text-xs text-amber-600 mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              Prototipo — el dato no persiste hasta conectar el backend.
-            </p>
+            {estadoApi === 'demo' && (
+              <p className="text-xs text-amber-600 mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Prototipo — el dato no persistió (backend no disponible).
+              </p>
+            )}
           </div>
           <button
             onClick={() => { setForm({ tipo: 'ingreso', monto: '', categoria: '', descripcion: '', fecha: hoy }); setEnviado(false) }}
@@ -71,14 +103,22 @@ export function NuevoMovimiento({ usuario }: Props) {
 
   return (
     <div className="max-w-lg mx-auto space-y-5">
-      <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-2.5 text-xs font-medium">
-        📝 Registrando para <span className="font-semibold">{usuario.nombre} {usuario.apellido}</span> — prototipo, sin persistencia real.
-      </div>
+      {estadoApi === 'demo' && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-2.5 text-xs font-medium">
+          📝 Backend no disponible — el movimiento no se persistirá.
+        </div>
+      )}
+      {estadoApi === 'ok' && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-4 py-2.5 text-xs font-medium">
+          ✅ Conectado — el movimiento se guardará en la base de datos.
+        </div>
+      )}
 
       <Card className="p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-5">Nuevo movimiento</h2>
+        <h2 className="text-lg font-bold text-gray-900 mb-5">
+          Nuevo movimiento — {usuario.nombre}
+        </h2>
         <form onSubmit={handleSubmit} noValidate className="space-y-5">
-
           <fieldset>
             <legend className="text-sm font-medium text-gray-700 mb-2">Tipo</legend>
             <div className="grid grid-cols-3 gap-2">
@@ -96,8 +136,8 @@ export function NuevoMovimiento({ usuario }: Props) {
             <label htmlFor="monto" className="block text-sm font-medium text-gray-700 mb-1">Monto (COP)</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-              <input id="monto" type="number" min="1" step="1000" placeholder="0" value={form.monto}
-                onChange={e => set('monto', e.target.value)}
+              <input id="monto" type="number" min="1" step="1000" placeholder="0"
+                value={form.monto} onChange={e => set('monto', e.target.value)}
                 className="w-full pl-7 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500" required />
             </div>
           </div>
@@ -107,7 +147,7 @@ export function NuevoMovimiento({ usuario }: Props) {
             <select id="categoria" value={form.categoria} onChange={e => set('categoria', e.target.value)}
               className="w-full py-2.5 px-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white" required>
               <option value="">Selecciona una categoría</option>
-              {usuario.categorias.map(c => <option key={c} value={c}>{c}</option>)}
+              {categorias.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
@@ -128,8 +168,9 @@ export function NuevoMovimiento({ usuario }: Props) {
 
           {error && <div role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</div>}
 
-          <button type="submit" className={`w-full py-3 rounded-xl font-semibold text-white transition-colors text-sm ${tipoActual.btnColor}`}>
-            Registrar {tipoActual.etiqueta.toLowerCase()}
+          <button type="submit" disabled={enviando}
+            className={`w-full py-3 rounded-xl font-semibold text-white transition-colors text-sm disabled:opacity-60 ${tipoActual.btnColor}`}>
+            {enviando ? 'Guardando…' : `Registrar ${tipoActual.etiqueta.toLowerCase()}`}
           </button>
         </form>
       </Card>

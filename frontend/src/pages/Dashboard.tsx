@@ -1,13 +1,18 @@
-import type { PerfilUsuario } from '../data/usuarios'
+import { useMovimientos } from '../hooks/useMovimientos'
+import { useMetas } from '../hooks/useMetas'
 import { TarjetaSaldo } from '../components/dashboard/TarjetaSaldo'
 import { GraficoBarras } from '../components/dashboard/GraficoBarras'
 import { MovimientosRecientes } from '../components/dashboard/MovimientosRecientes'
+import { BannerEstado } from '../components/ui/BannerEstado'
 import { Card } from '../components/ui/Card'
+import { Spinner } from '../components/ui/Spinner'
 import { formatearMoneda } from '../utils/formato'
 import { IconoSaldo, IconoTendenciaAlza, IconoTendenciaBaja, IconoAhorro } from '../components/ui/Icono'
+import type { PerfilUsuario } from '../data/usuarios'
 
-function ResumenMetas({ usuario }: { usuario: PerfilUsuario }) {
-  const enProgreso = usuario.metas.filter(m => m.actual < m.meta)
+function ResumenMetas() {
+  const { metas } = useMetas()
+  const enProgreso = metas.filter(m => m.actual < m.meta)
   if (enProgreso.length === 0) return null
   return (
     <Card className="p-5">
@@ -35,9 +40,10 @@ function ResumenMetas({ usuario }: { usuario: PerfilUsuario }) {
   )
 }
 
-function DistribucionGastos({ usuario }: { usuario: PerfilUsuario }) {
-  const gastos = usuario.movimientos.filter(m => m.tipo === 'gasto')
+function DistribucionGastos({ movimientos }: { movimientos: ReturnType<typeof useMovimientos>['movimientos'] }) {
+  const gastos = movimientos.filter(m => m.tipo === 'gasto')
   const total = gastos.reduce((s, m) => s + m.monto, 0)
+  if (total === 0) return null
   const porCat: Record<string, number> = {}
   for (const g of gastos) porCat[g.categoria] = (porCat[g.categoria] ?? 0) + g.monto
   const ordenado = Object.entries(porCat).sort((a, b) => b[1] - a[1]).slice(0, 4)
@@ -65,9 +71,18 @@ function DistribucionGastos({ usuario }: { usuario: PerfilUsuario }) {
 interface Props { usuario: PerfilUsuario }
 
 export function Dashboard({ usuario }: Props) {
-  const r = usuario.resumen
+  const { movimientos, resumen, datosGrafico, estado, recargar } = useMovimientos()
+
+  if (estado === 'cargando') {
+    return <div className="space-y-5"><BannerEstado estado="cargando" /><Spinner /></div>
+  }
+
+  const r = resumen
+
   return (
     <div className="space-y-5">
+      <BannerEstado estado={estado} onRecargar={recargar} />
+
       {/* Banner */}
       <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl p-5 text-white">
         <p className="text-emerald-100 text-xs font-medium mb-1">Octubre 2026</p>
@@ -82,25 +97,25 @@ export function Dashboard({ usuario }: Props) {
       <section aria-label="Resumen financiero">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <TarjetaSaldo titulo="Saldo disponible" monto={r.saldoDisponible} icono={<IconoSaldo className="w-5 h-5" />} color="esmeralda" descripcion="Ingresos − gastos − ahorros" />
-          <TarjetaSaldo titulo="Total ingresos"   monto={r.totalIngresos}   icono={<IconoTendenciaAlza className="w-5 h-5" />} color="gris"      descripcion="Este mes" />
-          <TarjetaSaldo titulo="Total gastos"     monto={r.totalGastos}     icono={<IconoTendenciaBaja className="w-5 h-5" />} color="rojo"      descripcion="Este mes" />
-          <TarjetaSaldo titulo="Total ahorros"    monto={r.totalAhorros}    icono={<IconoAhorro className="w-5 h-5" />}        color="azul"      descripcion="Este mes" />
+          <TarjetaSaldo titulo="Total ingresos"   monto={r.totalIngresos}   icono={<IconoTendenciaAlza className="w-5 h-5" />} color="gris" descripcion="Este mes" />
+          <TarjetaSaldo titulo="Total gastos"     monto={r.totalGastos}     icono={<IconoTendenciaBaja className="w-5 h-5" />} color="rojo" descripcion="Este mes" />
+          <TarjetaSaldo titulo="Total ahorros"    monto={r.totalAhorros}    icono={<IconoAhorro className="w-5 h-5" />} color="azul" descripcion="Este mes" />
         </div>
       </section>
 
       {/* Gráfico + Movimientos */}
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          <div className="lg:col-span-3"><GraficoBarras datos={usuario.datosGrafico} /></div>
-          <div className="lg:col-span-2"><MovimientosRecientes movimientos={usuario.movimientos} limite={5} /></div>
+          <div className="lg:col-span-3"><GraficoBarras datos={datosGrafico} /></div>
+          <div className="lg:col-span-2"><MovimientosRecientes movimientos={movimientos} limite={5} /></div>
         </div>
       </section>
 
       {/* Metas + distribución */}
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ResumenMetas usuario={usuario} />
-          <DistribucionGastos usuario={usuario} />
+          <ResumenMetas />
+          <DistribucionGastos movimientos={movimientos} />
         </div>
       </section>
     </div>
