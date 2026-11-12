@@ -6,7 +6,6 @@ para el recurso Movimiento.
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ─── Datos base válidos ────────────────────────────────────────────────────────
 
 MOVIMIENTO_VALIDO = {

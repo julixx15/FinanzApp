@@ -2,10 +2,8 @@
 Modelos SQLAlchemy para FinanzApp.
 
 Estrategia monetaria:
-- Los montos se almacenan como INTEGER en centavos (x100) para evitar
-  errores de punto flotante en cálculos financieros.
-- La conversión a/desde Decimal ocurre en los schemas Pydantic.
-- Ejemplo: $3.200.000 COP → 320000000 centavos en la base de datos.
+- Los montos se almacenan como INTEGER en centavos (x100).
+- Conversión a/desde Decimal ocurre en los repositorios.
 """
 
 from datetime import date, datetime
@@ -15,52 +13,18 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
 
-TIPOS_VALIDOS = ("ingreso", "gasto", "ahorro")
-
 
 class MovimientoModel(Base):
-    """Representa un movimiento financiero (ingreso, gasto o ahorro)."""
-
     __tablename__ = "movimientos"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-
-    tipo: Mapped[str] = mapped_column(
-        String(10),
-        nullable=False,
-        comment="Tipo de movimiento: ingreso | gasto | ahorro",
-    )
-
-    # Monto en centavos (entero positivo)
-    monto_centavos: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-        comment="Monto en centavos (entero). Ejemplo: $1.500 → 150000",
-    )
-
-    categoria: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-        comment="Categoría del movimiento",
-    )
-
-    descripcion: Mapped[str] = mapped_column(
-        String(300),
-        nullable=False,
-        default="",
-        comment="Descripción opcional del movimiento",
-    )
-
-    fecha: Mapped[date] = mapped_column(
-        nullable=False,
-        comment="Fecha del movimiento (YYYY-MM-DD)",
-    )
-
+    tipo: Mapped[str] = mapped_column(String(10), nullable=False)
+    monto_centavos: Mapped[int] = mapped_column(Integer, nullable=False)
+    categoria: Mapped[str] = mapped_column(String(100), nullable=False)
+    descripcion: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    fecha: Mapped[date] = mapped_column(nullable=False)
     creado_en: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-        comment="Timestamp de creación (UTC)",
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     __table_args__ = (
@@ -70,4 +34,29 @@ class MovimientoModel(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Movimiento id={self.id} tipo={self.tipo} monto={self.monto_centavos}>"
+        return f"<Movimiento id={self.id} tipo={self.tipo} monto_centavos={self.monto_centavos}>"
+
+
+class MetaAhorroModel(Base):
+    __tablename__ = "metas_ahorro"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nombre: Mapped[str] = mapped_column(String(100), nullable=False)
+    descripcion: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    # montos en centavos
+    meta_centavos: Mapped[int] = mapped_column(Integer, nullable=False)
+    actual_centavos: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    fecha_limite: Mapped[date] = mapped_column(nullable=False)
+    emoji: Mapped[str] = mapped_column(String(10), nullable=False, default="🎯")
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("meta_centavos > 0", name="ck_meta_positiva"),
+        CheckConstraint("actual_centavos >= 0", name="ck_actual_no_negativo"),
+        CheckConstraint("length(trim(nombre)) > 0", name="ck_nombre_meta_no_vacio"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<MetaAhorro id={self.id} nombre={self.nombre}>"

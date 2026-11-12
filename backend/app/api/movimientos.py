@@ -6,12 +6,11 @@ devuelve respuesta. Sin lógica de negocio aquí.
 """
 
 from datetime import date
-from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.finanzas import calcular_resumen, categorias_unicas
+from app.core.finanzas import calcular_resumen, categorias_unicas, historial_mensual
 from app.db.database import get_db
 from app.db.repositories import movimientos as repo
 from app.schemas.movimiento import (
@@ -25,7 +24,6 @@ router = APIRouter(prefix="/movimientos", tags=["movimientos"])
 
 
 def _movimiento_o_404(movimiento_id: int, db: Session) -> repo.MovimientoModel:
-    """Retorna el movimiento o lanza 404."""
     mov = repo.obtener_por_id(db, movimiento_id)
     if mov is None:
         raise HTTPException(
@@ -36,7 +34,6 @@ def _movimiento_o_404(movimiento_id: int, db: Session) -> repo.MovimientoModel:
 
 
 def _modelo_a_response(mov: repo.MovimientoModel) -> MovimientoResponse:
-    """Construye un MovimientoResponse inyectando el monto como Decimal."""
     return MovimientoResponse(
         id=mov.id,
         tipo=mov.tipo,  # type: ignore[arg-type]
@@ -58,8 +55,7 @@ def crear_movimiento(
     datos: MovimientoCreate,
     db: Session = Depends(get_db),
 ) -> MovimientoResponse:
-    mov = repo.crear(db, datos)
-    return _modelo_a_response(mov)
+    return _modelo_a_response(repo.crear(db, datos))
 
 
 @router.get(
@@ -89,6 +85,17 @@ def listar_movimientos(
 
 
 @router.get(
+    "/historial-mensual",
+    response_model=list[dict],
+    summary="Historial agrupado por mes para gráficos",
+)
+def obtener_historial_mensual(
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    return historial_mensual(repo.listar(db, limite=10_000))
+
+
+@router.get(
     "/resumen",
     response_model=ResumenResponse,
     summary="Resumen financiero (saldo, ingresos, gastos, ahorros)",
@@ -108,8 +115,7 @@ def obtener_resumen(
     summary="Lista de categorías únicas registradas",
 )
 def obtener_categorias(db: Session = Depends(get_db)) -> list[str]:
-    movs = repo.listar(db, limite=10_000)
-    return categorias_unicas(movs)
+    return categorias_unicas(repo.listar(db, limite=10_000))
 
 
 @router.get(
@@ -121,8 +127,7 @@ def obtener_movimiento(
     movimiento_id: int,
     db: Session = Depends(get_db),
 ) -> MovimientoResponse:
-    mov = _movimiento_o_404(movimiento_id, db)
-    return _modelo_a_response(mov)
+    return _modelo_a_response(_movimiento_o_404(movimiento_id, db))
 
 
 @router.patch(
@@ -135,8 +140,7 @@ def actualizar_movimiento(
     datos: MovimientoUpdate,
     db: Session = Depends(get_db),
 ) -> MovimientoResponse:
-    mov = _movimiento_o_404(movimiento_id, db)
-    mov = repo.actualizar(db, mov, datos)
+    mov = repo.actualizar(db, _movimiento_o_404(movimiento_id, db), datos)
     return _modelo_a_response(mov)
 
 
@@ -149,5 +153,4 @@ def eliminar_movimiento(
     movimiento_id: int,
     db: Session = Depends(get_db),
 ) -> None:
-    mov = _movimiento_o_404(movimiento_id, db)
-    repo.eliminar(db, mov)
+    repo.eliminar(db, _movimiento_o_404(movimiento_id, db))
