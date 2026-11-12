@@ -5,6 +5,8 @@ const TITULOS: Record<PaginaActiva, string> = {
   dashboard:   'Dashboard',
   movimientos: 'Movimientos',
   reportes:    'Reportes',
+  metas:       'Metas de ahorro',
+  nuevo:       'Nuevo movimiento',
 }
 
 const PERIODOS: { valor: PeriodoFiltro; etiqueta: string }[] = [

@@ -4,6 +4,8 @@ import { Encabezado } from './components/layout/Encabezado'
 import { Dashboard } from './pages/Dashboard'
 import { Movimientos } from './pages/Movimientos'
 import { Reportes } from './pages/Reportes'
+import { Metas } from './pages/Metas'
+import { NuevoMovimiento } from './pages/NuevoMovimiento'
 import type { PaginaActiva, PeriodoFiltro } from './types/ui'
 import './index.css'
 
@@ -33,6 +35,8 @@ function App() {
           {pagina === 'dashboard'   && <Dashboard />}
           {pagina === 'movimientos' && <Movimientos />}
           {pagina === 'reportes'    && <Reportes />}
+          {pagina === 'metas'       && <Metas />}
+          {pagina === 'nuevo'       && <NuevoMovimiento />}
         </main>
       </div>
     </div>

@@ -6,7 +6,7 @@ export interface Movimiento {
   monto: number
   categoria: string
   descripcion: string
-  fecha: string // ISO date string YYYY-MM-DD
+  fecha: string
 }
 
 export interface ResumenFinanciero {
@@ -21,6 +21,17 @@ export interface DatoGrafico {
   ingresos: number
   gastos: number
   ahorros: number
+}
+
+export interface MetaAhorro {
+  id: number
+  nombre: string
+  descripcion: string
+  meta: number
+  actual: number
+  fechaLimite: string
+  color: string
+  emoji: string
 }
 
 export type PeriodoFiltro = 'este-mes' | 'mes-anterior' | 'ultimos-3-meses' | 'este-año'
