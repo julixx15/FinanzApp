@@ -1,4 +1,6 @@
 import type { PaginaActiva } from '../../types/ui'
+import type { PerfilUsuario } from '../../data/usuarios'
+import { SelectorUsuario } from './SelectorUsuario'
 import {
   IconoDashboard,
   IconoMovimientos,
@@ -6,6 +8,7 @@ import {
   IconoCerrar,
   IconoMetas,
   IconoNuevo,
+  IconoCoach,
 } from '../ui/Icono'
 
 interface NavItem {
@@ -20,7 +23,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'movimientos',  etiqueta: 'Movimientos',      Icono: IconoMovimientos },
   { id: 'metas',        etiqueta: 'Metas de ahorro',  Icono: IconoMetas },
   { id: 'reportes',     etiqueta: 'Reportes',         Icono: IconoReportes },
-  { id: 'nuevo',        etiqueta: 'Nuevo movimiento', Icono: IconoNuevo, separadorArriba: true },
+  { id: 'coach',        etiqueta: 'Coach financiero', Icono: IconoCoach, separadorArriba: true },
+  { id: 'nuevo',        etiqueta: 'Nuevo movimiento', Icono: IconoNuevo },
 ]
 
 interface SidebarProps {
@@ -28,9 +32,14 @@ interface SidebarProps {
   onNavegar: (pagina: PaginaActiva) => void
   abierto: boolean
   onCerrar: () => void
+  usuarioActivo: PerfilUsuario
+  onCambiarUsuario: (id: string) => void
 }
 
-export function Sidebar({ paginaActiva, onNavegar, abierto, onCerrar }: SidebarProps) {
+export function Sidebar({
+  paginaActiva, onNavegar, abierto, onCerrar,
+  usuarioActivo, onCambiarUsuario,
+}: SidebarProps) {
   const handleNav = (pagina: PaginaActiva) => {
     onNavegar(pagina)
     onCerrar()
@@ -104,18 +113,11 @@ export function Sidebar({ paginaActiva, onNavegar, abierto, onCerrar }: SidebarP
           })}
         </nav>
 
-        {/* Usuario demo */}
-        <div className="px-4 py-4 border-t border-gray-100">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
-            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-              <span className="text-emerald-700 font-semibold text-sm">J</span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-800 truncate">Julian Murcia</p>
-              <p className="text-xs text-gray-400 truncate">FESC · 2026</p>
-            </div>
-          </div>
-        </div>
+        {/* Selector de usuario */}
+        <SelectorUsuario
+          usuarioActivo={usuarioActivo}
+          onCambiar={onCambiarUsuario}
+        />
       </aside>
     </>
   )
